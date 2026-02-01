@@ -92,12 +92,9 @@ jobs:
           BRANCH_NAME="news/galactic-weekly-${{ github.run_id }}"
           WEEK_INFO="${{ steps.news.outputs.week_info }}"
 
-          # Sync fork with upstream
-          gh repo sync "${FORK}" --source "${UPSTREAM}"
-
-          # Get default branch SHA from fork
-          DEFAULT_BRANCH=$(gh api "repos/${FORK}" --jq '.default_branch')
-          BASE_SHA=$(gh api "repos/${FORK}/git/ref/heads/${DEFAULT_BRANCH}" --jq '.object.sha')
+          # Get upstream default branch SHA (no sync needed - branch from upstream directly)
+          DEFAULT_BRANCH=$(gh api "repos/${UPSTREAM}" --jq '.default_branch')
+          BASE_SHA=$(gh api "repos/${UPSTREAM}/git/ref/heads/${DEFAULT_BRANCH}" --jq '.object.sha')
 
           # Create new branch on fork
           gh api "repos/${FORK}/git/refs" \
