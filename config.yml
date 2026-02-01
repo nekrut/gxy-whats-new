@@ -1,0 +1,16 @@
+organization: galaxyproject
+excluded_repos: []
+highlight_repos:
+  - galaxy
+  - training-material
+  - tools-iuc
+  - usegalaxy-playbook
+  - galaxy-hub
+periods:
+  weekly:
+    days: 7
+  monthly:
+    days: 30
+  yearly:
+    days: 365
+output_dir: summaries

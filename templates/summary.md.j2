@@ -1,0 +1,54 @@
+# Galaxy Project Activity: {{ period_label }}
+*{{ start_date }} to {{ end_date }}*
+
+## Summary
+- **Repositories with activity:** {{ repos_active }}
+- **New issues:** {{ issues_new }}
+- **Issues closed:** {{ issues_closed }}
+- **PRs opened:** {{ prs_opened }}
+- **PRs merged:** {{ prs_merged }}
+- **Contributors:** {{ contributors_unique }}
+{% if overall_summary %}
+
+### Highlights
+
+{{ overall_summary }}
+{% endif %}
+
+## Most Active Repositories
+
+| Repository | PRs Merged | Issues Closed |
+|------------|------------|---------------|
+{% for repo in top_repos -%}
+| [{{ repo.name }}](https://github.com/galaxyproject/{{ repo.name }}) | {{ repo.prs_merged }} | {{ repo.issues_closed }} |
+{% endfor %}
+{% if repo_summaries %}
+## Repository Summaries
+{% for repo_name, summary in repo_summaries.items() %}
+### {{ repo_name }}
+{{ summary }}
+{% endfor %}
+{% endif %}
+## Merged Pull Requests
+{% for repo_name, prs in merged_prs_by_repo.items() %}
+### {{ repo_name }}
+{% for pr in prs -%}
+- [{{ pr.title }}]({{ pr.url }}) by @{{ pr.author }}
+{% endfor %}
+{%- endfor %}
+## New Issues
+{% for repo_name, issues in new_issues_by_repo.items() %}
+### {{ repo_name }}
+{% for issue in issues -%}
+- [{{ issue.title }}]({{ issue.url }}) by @{{ issue.author }}
+{% endfor %}
+{%- endfor %}
+## Closed Issues
+{% for repo_name, issues in closed_issues_by_repo.items() %}
+### {{ repo_name }}
+{% for issue in issues -%}
+- [{{ issue.title }}]({{ issue.url }})
+{% endfor %}
+{%- endfor %}
+---
+*Generated automatically on {{ generated_at }}*
