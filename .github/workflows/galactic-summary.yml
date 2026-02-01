@@ -26,7 +26,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      pull-requests: write
     steps:
       - uses: actions/checkout@v4
 
@@ -47,14 +46,10 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 
-      - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v5
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          title: "Add Galactic Summary for ${{ inputs.period || 'weekly' }}"
-          body: |
-            Automated summary of GitHub activity across galaxyproject repositories.
-
-            Period: ${{ inputs.period || 'weekly' }}
-          branch: summary-${{ github.run_id }}
-          commit-message: "Add ${{ inputs.period || 'weekly' }} summary"
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add summaries/
+          git diff --staged --quiet || git commit -m "Add ${{ inputs.period || 'weekly' }} summary"
+          git push
