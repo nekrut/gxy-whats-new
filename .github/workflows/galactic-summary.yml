@@ -117,3 +117,24 @@ jobs:
           # Output branch URL for manual PR creation
           echo "Branch ready: https://github.com/${FORK}/tree/${BRANCH_NAME}"
           echo "Create PR: https://github.com/galaxyproject/galaxy-hub/compare/main...nekrut:galaxy-hub:${BRANCH_NAME}"
+
+          # Save for email step
+          echo "BRANCH_URL=https://github.com/${FORK}/tree/${BRANCH_NAME}" >> $GITHUB_ENV
+          echo "PR_URL=https://github.com/galaxyproject/galaxy-hub/compare/main...nekrut:galaxy-hub:${BRANCH_NAME}" >> $GITHUB_ENV
+          echo "WEEK_INFO=${WEEK_INFO}" >> $GITHUB_ENV
+
+      - name: Send email notification
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          subject: "Galactic Weekly ${{ env.WEEK_INFO }} ready for PR"
+          to: anton@nekrut.org
+          from: Galactic Bot <${{ secrets.SMTP_USERNAME }}>
+          body: |
+            Weekly summary is ready for Galaxy Hub.
+
+            Branch: ${{ env.BRANCH_URL }}
+            Create PR: ${{ env.PR_URL }}
