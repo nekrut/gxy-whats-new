@@ -87,16 +87,20 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
-          REPO="galaxyproject/galaxy-hub"
+          FORK="nekrut/galaxy-hub"
+          UPSTREAM="galaxyproject/galaxy-hub"
           BRANCH_NAME="news/galactic-weekly-${{ github.run_id }}"
           WEEK_INFO="${{ steps.news.outputs.week_info }}"
 
-          # Get default branch SHA
-          DEFAULT_BRANCH=$(gh api "repos/${REPO}" --jq '.default_branch')
-          BASE_SHA=$(gh api "repos/${REPO}/git/ref/heads/${DEFAULT_BRANCH}" --jq '.object.sha')
+          # Sync fork with upstream
+          gh repo sync "${FORK}" --source "${UPSTREAM}"
 
-          # Create new branch
-          gh api "repos/${REPO}/git/refs" \
+          # Get default branch SHA from fork
+          DEFAULT_BRANCH=$(gh api "repos/${FORK}" --jq '.default_branch')
+          BASE_SHA=$(gh api "repos/${FORK}/git/ref/heads/${DEFAULT_BRANCH}" --jq '.object.sha')
+
+          # Create new branch on fork
+          gh api "repos/${FORK}/git/refs" \
             -f ref="refs/heads/${BRANCH_NAME}" \
             -f sha="${BASE_SHA}"
 
@@ -105,17 +109,17 @@ jobs:
           NEWS_FILE="${NEWS_DIR}/index.md"
           DIR_NAME=$(basename "$NEWS_DIR")
 
-          # Upload file content
+          # Upload file content to fork
           CONTENT=$(base64 -i "$NEWS_FILE")
-          gh api "repos/${REPO}/contents/content/news/${DIR_NAME}/index.md" \
+          gh api "repos/${FORK}/contents/content/news/${DIR_NAME}/index.md" \
             -X PUT \
             -f message="Add Galactic Weekly for ${WEEK_INFO}" \
             -f content="${CONTENT}" \
             -f branch="${BRANCH_NAME}"
 
-          # Create PR
-          gh pr create --repo "${REPO}" \
-            --head "${BRANCH_NAME}" \
+          # Create PR from fork to upstream
+          gh pr create --repo "${UPSTREAM}" \
+            --head "nekrut:${BRANCH_NAME}" \
             --title "Galactic Weekly: ${WEEK_INFO}" \
             --body "Auto-generated weekly summary of galaxyproject activity.
 
