@@ -17,10 +17,10 @@
 
 ## Most Active Repositories
 
-| Repository | PRs Merged | Issues Closed |
-|------------|------------|---------------|
+| Repository | PRs Opened | PRs Merged | Issues Opened | Issues Closed |
+|------------|------------|------------|---------------|---------------|
 {% for repo in top_repos -%}
-| [{{ repo.name }}](https://github.com/galaxyproject/{{ repo.name }}) | {{ repo.prs_merged }} | {{ repo.issues_closed }} |
+| [{{ repo.name }}](https://github.com/galaxyproject/{{ repo.name }}) | {{ repo.prs_opened }} | {{ repo.prs_merged }} | {{ repo.issues_new }} | {{ repo.issues_closed }} |
 {% endfor %}
 {% if repo_summaries %}
 ## Repository Summaries
