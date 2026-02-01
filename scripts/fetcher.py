@@ -155,7 +155,7 @@ def fetch_repo_prs(org: str, repo: str, start: date, end: date) -> dict:
     params = {
         "state": "all",
         "per_page": 100,
-        "sort": "updated",
+        "sort": "created",
         "direction": "desc",
     }
 
@@ -174,10 +174,9 @@ def fetch_repo_prs(org: str, repo: str, start: date, end: date) -> dict:
         for item in items:
             created = datetime.fromisoformat(item["created_at"].replace("Z", "+00:00")).date()
             merged_at = item.get("merged_at")
-            updated = datetime.fromisoformat(item["updated_at"].replace("Z", "+00:00")).date()
 
-            # Stop if we've gone past our date range
-            if updated < start:
+            # Stop if we've gone past our date range (sorted by created desc)
+            if created < start:
                 return {"opened": opened_prs, "merged": merged_prs}
 
             if start <= created <= end:

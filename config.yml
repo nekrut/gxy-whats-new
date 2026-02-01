@@ -1,4 +1,5 @@
 organization: galaxyproject
+anthropic_model: claude-sonnet-4-20250514
 excluded_repos: []
 highlight_repos:
   - galaxy

@@ -33,9 +33,17 @@ def get_date_range(period: str, config: dict, custom_start: str = None, custom_e
 
     if period == "weekly":
         # Last Monday to Sunday
+        # weekday(): Mon=0, Tue=1, ..., Sun=6
+        # On Monday (0): want last Mon-Sun, so go back 7 days to last Monday
+        # On Sunday (6): want last Mon-Sun, so go back 6 days to last Monday
         days_since_monday = today.weekday()
-        end = today - timedelta(days=days_since_monday + 1)  # Last Sunday
-        start = end - timedelta(days=6)  # Previous Monday
+        if days_since_monday == 0:
+            # Monday: last week was 7 days ago
+            start = today - timedelta(days=7)
+        else:
+            # Tue-Sun: last Monday was days_since_monday days ago
+            start = today - timedelta(days=days_since_monday)
+        end = start + timedelta(days=6)  # Sunday of that week
     elif period == "monthly":
         # Previous month
         first_of_month = today.replace(day=1)
@@ -65,7 +73,7 @@ def get_output_path(period: str, start: date, config: dict) -> Path:
     elif period == "yearly":
         filename = f"{start.year}.md"
     else:
-        filename = f"{start.isoformat()}_to_{start.isoformat()}.md"
+        filename = f"{start.isoformat()}_to_{end.isoformat()}.md"
 
     return output_dir / filename
 
@@ -155,9 +163,10 @@ def main():
     overall_summary = None
     if not args.no_ai:
         print("\n")
-        repo_summaries = generate_repo_summaries(activity_data)
+        model = config.get("anthropic_model")
+        repo_summaries = generate_repo_summaries(activity_data, model=model)
         if repo_summaries:
-            overall_summary = generate_overall_summary(metrics, repo_summaries)
+            overall_summary = generate_overall_summary(metrics, repo_summaries, model=model)
 
     metrics["repo_summaries"] = repo_summaries
     metrics["overall_summary"] = overall_summary

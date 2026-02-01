@@ -5,6 +5,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import anthropic
 
+DEFAULT_MODEL = "claude-sonnet-4-20250514"
+
 
 def get_client():
     api_key = os.environ.get("ANTHROPIC_API_KEY")
@@ -13,7 +15,7 @@ def get_client():
     return anthropic.Anthropic(api_key=api_key)
 
 
-def summarize_repo_activity(repo_name: str, activity: dict) -> str | None:
+def summarize_repo_activity(repo_name: str, activity: dict, model: str = None) -> str | None:
     """Generate human-readable summary for a repo's activity."""
     client = get_client()
     if not client:
@@ -52,7 +54,7 @@ Summary:"""
 
     try:
         response = client.messages.create(
-            model="claude-sonnet-4-20250514",
+            model=model or DEFAULT_MODEL,
             max_tokens=200,
             messages=[{"role": "user", "content": prompt}],
         )
@@ -62,7 +64,7 @@ Summary:"""
         return None
 
 
-def generate_repo_summaries(activity_data: list[dict], max_workers: int = 3) -> dict[str, str]:
+def generate_repo_summaries(activity_data: list[dict], model: str = None, max_workers: int = 3) -> dict[str, str]:
     """Generate summaries for all repos with activity."""
     client = get_client()
     if not client:
@@ -80,7 +82,7 @@ def generate_repo_summaries(activity_data: list[dict], max_workers: int = 3) -> 
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = {
-            executor.submit(summarize_repo_activity, a["repo"], a): a["repo"]
+            executor.submit(summarize_repo_activity, a["repo"], a, model): a["repo"]
             for a in active_repos
         }
 
@@ -97,7 +99,7 @@ def generate_repo_summaries(activity_data: list[dict], max_workers: int = 3) -> 
     return summaries
 
 
-def generate_overall_summary(metrics: dict, repo_summaries: dict[str, str]) -> str | None:
+def generate_overall_summary(metrics: dict, repo_summaries: dict[str, str], model: str = None) -> str | None:
     """Generate an executive summary of all activity."""
     client = get_client()
     if not client:
@@ -129,7 +131,7 @@ Summary:"""
 
     try:
         response = client.messages.create(
-            model="claude-sonnet-4-20250514",
+            model=model or DEFAULT_MODEL,
             max_tokens=300,
             messages=[{"role": "user", "content": prompt}],
         )

@@ -1,6 +1,6 @@
 """Markdown rendering from Jinja2 templates."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader
@@ -25,7 +25,7 @@ def render_markdown(
         "period_label": period_label,
         "start_date": start_date,
         "end_date": end_date,
-        "generated_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"),
+        "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
     }
 
     return template.render(**context)
