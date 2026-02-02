@@ -1,5 +1,7 @@
 # Galactic Weekly
 
+<img width="1024" height="495" alt="image" src="https://github.com/user-attachments/assets/23c1fc24-56f2-4bc0-85f1-7135a1b256fd" />
+
 Automated weekly summaries of GitHub activity across all 150+ repositories in the `galaxyproject` organization. Generates AI-powered human-readable summaries and automatically creates news posts for Galaxy Hub.
 
 ## Features
