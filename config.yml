@@ -15,3 +15,15 @@ periods:
   yearly:
     days: 365
 output_dir: summaries
+
+# API settings
+api:
+  max_workers: 3
+  rate_limit_delay: 0.1
+  request_timeout: 30
+  max_retries: 3
+
+# AI summary settings
+ai:
+  repo_summary_tokens: 200
+  overall_summary_tokens: 300

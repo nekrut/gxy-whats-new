@@ -1,9 +1,12 @@
 """Markdown rendering from Jinja2 templates."""
 
+import logging
 from datetime import datetime, timezone
 from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader
+
+log = logging.getLogger(__name__)
 
 
 def render_markdown(
@@ -28,4 +31,5 @@ def render_markdown(
         "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
     }
 
+    log.debug(f"Rendering template: {template_name}")
     return template.render(**context)
