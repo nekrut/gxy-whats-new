@@ -115,10 +115,13 @@ def main():
 
     print(f"Created: {output_file}")
 
-    # Output info for workflow
-    print(f"::set-output name=week_num::{week_num}")
-    print(f"::set-output name=year::{year}")
-    print(f"::set-output name=end_date::{end_date}")
+    # Output info for workflow (using GITHUB_OUTPUT environment file)
+    github_output = os.environ.get("GITHUB_OUTPUT")
+    if github_output:
+        with open(github_output, "a") as f:
+            f.write(f"week_num={week_num}\n")
+            f.write(f"year={year}\n")
+            f.write(f"end_date={end_date}\n")
 
 
 if __name__ == "__main__":
