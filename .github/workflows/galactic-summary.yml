@@ -106,13 +106,27 @@ jobs:
           NEWS_FILE="${NEWS_DIR}/index.md"
           DIR_NAME=$(basename "$NEWS_DIR")
 
-          # Upload file content to fork
+          # Upload file content to fork (get existing SHA if file exists)
           CONTENT=$(base64 -i "$NEWS_FILE")
-          gh api "repos/${FORK}/contents/content/news/${DIR_NAME}/index.md" \
-            -X PUT \
-            -f message="Add Galactic Weekly for ${WEEK_INFO}" \
-            -f content="${CONTENT}" \
-            -f branch="${BRANCH_NAME}"
+          FILE_PATH="content/news/${DIR_NAME}/index.md"
+
+          # Check if file exists and get its SHA
+          EXISTING_SHA=$(gh api "repos/${FORK}/contents/${FILE_PATH}?ref=${BRANCH_NAME}" --jq '.sha' 2>/dev/null || echo "")
+
+          if [ -n "$EXISTING_SHA" ]; then
+            gh api "repos/${FORK}/contents/${FILE_PATH}" \
+              -X PUT \
+              -f message="Update Galactic Weekly for ${WEEK_INFO}" \
+              -f content="${CONTENT}" \
+              -f branch="${BRANCH_NAME}" \
+              -f sha="${EXISTING_SHA}"
+          else
+            gh api "repos/${FORK}/contents/${FILE_PATH}" \
+              -X PUT \
+              -f message="Add Galactic Weekly for ${WEEK_INFO}" \
+              -f content="${CONTENT}" \
+              -f branch="${BRANCH_NAME}"
+          fi
 
           # Output branch URL for manual PR creation
           echo "Branch ready: https://github.com/${FORK}/tree/${BRANCH_NAME}"
