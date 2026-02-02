@@ -9,6 +9,8 @@ Automated weekly summaries of GitHub activity across all 150+ repositories in th
 - Produces markdown reports with metrics and highlights
 - Auto-creates Galaxy Hub news post branches
 - Email notifications when posts are ready for PR
+- Configurable rate limiting and retry logic
+- Structured logging with verbose mode
 
 ## Repository Structure
 
@@ -25,6 +27,10 @@ gxy-whats-new/
 │   └── summary.md.j2         # Summary template
 ├── summaries/
 │   └── weekly/               # Generated summaries
+├── tests/
+│   ├── test_aggregator.py    # Aggregator unit tests
+│   ├── test_fetcher.py       # Fetcher unit tests
+│   └── test_dates.py         # Date calculation tests
 ├── config.yml                # Configuration
 └── requirements.txt          # Python dependencies
 ```
@@ -35,20 +41,24 @@ gxy-whats-new/
 Main orchestrator. Coordinates fetching, aggregation, summarization, and rendering.
 
 **Functions:**
-- `load_config()` - Loads `config.yml`
+- `setup_logging()` - Configures logging for all modules
+- `load_config()` - Loads and validates `config.yml`
 - `get_date_range()` - Calculates period start/end dates
 - `get_output_path()` - Determines output filename
 - `get_period_label()` - Human-readable period name
 
 ### `fetcher.py`
-GitHub API interactions using both REST and GraphQL.
+GitHub API interactions using both REST and GraphQL with retry logic.
 
 **Functions:**
+- `get_headers()` - Returns auth headers from `GITHUB_TOKEN`
+- `handle_rate_limit()` - Checks rate limit headers and waits if needed
+- `request_with_retry()` - HTTP requests with exponential backoff (1s, 2s, 4s)
 - `fetch_org_repos()` - Lists all non-archived repos via GraphQL
 - `fetch_repo_issues()` - Gets issues created/closed in date range
 - `fetch_repo_prs()` - Gets PRs opened/merged in date range
 - `fetch_repo_activity()` - Combines issues and PRs for one repo
-- `fetch_all_repos_activity()` - Parallel fetching for all repos
+- `fetch_all_repos_activity()` - Parallel fetching with configurable workers
 
 ### `aggregator.py`
 Processes raw data into summary metrics.
@@ -59,12 +69,14 @@ Processes raw data into summary metrics.
 **Activity score:** `merged_prs * 3 + opened_prs * 2 + closed_issues + new_issues`
 
 ### `summarizer.py`
-AI-powered summaries using Anthropic Claude.
+AI-powered summaries using Anthropic Claude with timeout handling.
 
 **Functions:**
+- `get_client()` - Creates Anthropic client with configurable timeout
+- `get_period_phrase()` - Returns "this week's", "this month's", etc.
 - `summarize_repo_activity()` - 2-3 sentence summary per repo
 - `generate_repo_summaries()` - Parallel summarization for all active repos
-- `generate_overall_summary()` - Executive summary of week's activity
+- `generate_overall_summary()` - Executive summary of period's activity
 
 ### `renderer.py`
 Jinja2 template rendering.
@@ -102,6 +114,18 @@ periods:
   yearly:
     days: 365
 output_dir: summaries
+
+# API settings
+api:
+  max_workers: 3              # Parallel fetch threads
+  rate_limit_delay: 0.1       # Delay between API calls (seconds)
+  request_timeout: 30         # HTTP timeout (seconds)
+  max_retries: 3              # Retry attempts on failure
+
+# AI summary settings
+ai:
+  repo_summary_tokens: 200    # Max tokens per repo summary
+  overall_summary_tokens: 300 # Max tokens for overall summary
 ```
 
 ## Local Usage
@@ -120,8 +144,12 @@ python scripts/generate_summary.py --period weekly
 # Other options
 python scripts/generate_summary.py --period monthly
 python scripts/generate_summary.py --start 2026-01-01 --end 2026-01-31
-python scripts/generate_summary.py --dry-run    # Print to stdout
-python scripts/generate_summary.py --no-ai      # Skip AI summaries
+python scripts/generate_summary.py --dry-run      # Print to stdout
+python scripts/generate_summary.py --no-ai        # Skip AI summaries
+python scripts/generate_summary.py --verbose      # Debug logging
+
+# Run tests
+pytest tests/
 ```
 
 ## GitHub Actions Workflow
@@ -220,10 +248,9 @@ After successful run, an email is sent containing:
 ## Dependencies
 
 ```
-PyGithub>=2.1.1
 requests>=2.31.0
 pyyaml>=6.0
 jinja2>=3.1.2
-anthropic>=0.40.0
+anthropic==0.40.0
 pytest>=7.0.0
 ```
