@@ -35,21 +35,21 @@
 {% for repo_name, prs in merged_prs_by_repo.items() %}
 ### {{ repo_name }}
 {% for pr in prs -%}
-- [{{ pr.title }}]({{ pr.url }}) by @{{ pr.author }}
+- [{{ pr.title | md_escape }}]({{ pr.url }}) by @{{ pr.author }}
 {% endfor %}
 {%- endfor %}
 ## New Issues
 {% for repo_name, issues in new_issues_by_repo.items() %}
 ### {{ repo_name }}
 {% for issue in issues -%}
-- [{{ issue.title }}]({{ issue.url }}) by @{{ issue.author }}
+- [{{ issue.title | md_escape }}]({{ issue.url }}) by @{{ issue.author }}
 {% endfor %}
 {%- endfor %}
 ## Closed Issues
 {% for repo_name, issues in closed_issues_by_repo.items() %}
 ### {{ repo_name }}
 {% for issue in issues -%}
-- [{{ issue.title }}]({{ issue.url }})
+- [{{ issue.title | md_escape }}]({{ issue.url }})
 {% endfor %}
 {%- endfor %}
 ---

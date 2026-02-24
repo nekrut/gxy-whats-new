@@ -9,6 +9,20 @@ from jinja2 import Environment, FileSystemLoader
 log = logging.getLogger(__name__)
 
 
+def md_escape_link_text(text: str) -> str:
+    """Escape markdown-special characters in text used inside link brackets.
+
+    Handles characters that break [text](url) syntax in markdown parsers:
+    - [ ] are escaped to prevent nested bracket confusion
+    - ` is escaped to prevent inline code breaking the link
+    - Trailing whitespace is stripped
+    """
+    text = text.strip()
+    text = text.replace("[", "&#91;").replace("]", "&#93;")
+    text = text.replace("`", "&#96;")
+    return text
+
+
 def render_markdown(
     metrics: dict,
     template_path: Path,
@@ -21,6 +35,7 @@ def render_markdown(
     template_name = template_path.name
 
     env = Environment(loader=FileSystemLoader(template_dir))
+    env.filters["md_escape"] = md_escape_link_text
     template = env.get_template(template_name)
 
     context = {
