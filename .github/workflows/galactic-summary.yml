@@ -95,8 +95,10 @@ jobs:
         run: |
           FORK="nekrut/galaxy-hub"
           UPSTREAM="galaxyproject/galaxy-hub"
-          BRANCH_NAME="news/galactic-weekly-${{ github.run_id }}"
           WEEK_INFO="${{ steps.news.outputs.week_info }}"
+          # e.g. 2026-W08 -> w08
+          SHORT_WEEK=$(echo "$WEEK_INFO" | sed 's/.*-W/w/' | tr '[:upper:]' '[:lower:]')
+          BRANCH_NAME="news/galactic-weekly-${SHORT_WEEK}"
 
           # Get fork's default branch SHA to create new branch from
           FORK_DEFAULT=$(gh api "repos/${FORK}" --jq '.default_branch')
