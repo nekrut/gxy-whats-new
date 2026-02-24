@@ -84,6 +84,7 @@ AI-powered summaries using Anthropic Claude with timeout handling.
 Jinja2 template rendering.
 
 **Functions:**
+- `md_escape_link_text()` - Escapes `[]` and backticks in titles to prevent breaking markdown link syntax
 - `render_markdown()` - Renders metrics to markdown using `templates/summary.md.j2`
 
 ### `news_post.py`
@@ -186,12 +187,14 @@ Creates a news post branch on the Galaxy Hub fork (runs only for weekly summarie
 **Steps:**
 1. Checkout and pull latest changes
 2. Run `news_post.py` to convert summary to Galaxy Hub format
-3. Create branch on fork (`nekrut/galaxy-hub`) from upstream SHA
-4. Upload news post file via GitHub API
-5. Send email notification with PR creation link
+3. Sync fork (`nekrut/galaxy-hub`) with upstream (`galaxyproject/galaxy-hub`)
+4. Create branch on fork (e.g., `news/galactic-weekly-w08`)
+5. Upload news post file via GitHub API
+6. Send email notification with PR creation link
 
 **API Operations:**
-- Gets upstream (`galaxyproject/galaxy-hub`) default branch SHA
+- Syncs fork with upstream to get latest CI workflows and content
+- Gets fork's default branch SHA
 - Creates new branch on fork
 - Uploads `content/news/YYYY-MM-DD-galactic-weekly/index.md`
 - Handles existing files by providing blob SHA for updates
@@ -236,7 +239,8 @@ Created at `content/news/YYYY-MM-DD-galactic-weekly/index.md` with frontmatter:
 title: "Galactic Weekly: Week X, YYYY"
 date: "YYYY-MM-DD"
 tease: "Weekly summary of activity across 150+ galaxyproject repositories"
-authors: "Galactic Bot"
+authors_structured:
+  - name: "Galactic Bot"
 tags: [community, development]
 subsites: [all]
 ```

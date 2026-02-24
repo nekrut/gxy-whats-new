@@ -18,15 +18,17 @@ scripts/
 └── news_post.py         # Galaxy Hub news conversion
 ```
 
-## Workflow (.github/workflows/weekly-summary.yml)
+## Workflow (.github/workflows/galactic-summary.yml)
 
 Two jobs:
 1. `generate-summary` - fetches data, generates summary, commits to this repo
-2. `create-hub-pr` - creates PR on galaxy-hub via fork
+2. `create-hub-pr` - syncs fork with upstream, creates news post branch on galaxy-hub fork
 
 ### Fork-Based PR Workflow
 - Uses nekrut/galaxy-hub fork (can't PR directly to upstream w/ fine-grained PAT)
+- Fork is auto-synced with upstream before each PR branch creation
 - GitHub API for branch/file creation (hub repo too large to clone)
+- Branch naming: `news/galactic-weekly-w08`, `news/galactic-weekly-w09`, etc.
 - Email notification sent for manual PR creation on upstream
 
 ### Required Secrets
@@ -47,6 +49,8 @@ Two jobs:
 3. **`GITHUB_OUTPUT`**: Replaces deprecated `set-output` command
 4. **Rate limiting**: Essential handling for 150+ repo fetches; fetcher.py has exponential backoff
 5. **Workflow push scope**: GitHub PATs need explicit `workflow` scope to modify `.github/workflows/` files
+6. **Markdown link escaping**: PR/issue titles with `[]` or backticks break `[text](url)` syntax; renderer.py has `md_escape` Jinja2 filter using HTML entities
+7. **Galaxy Hub frontmatter**: Uses `authors_structured` (list of `{name, github, orcid}` maps), NOT `authors` (string). Schema defined in `content/schema-news.yaml`
 
 ## Common Tasks
 
@@ -55,11 +59,11 @@ Two jobs:
 python scripts/generate_summary.py
 ```
 
-### Test individual components
+### Regenerate a specific week
 ```bash
-python -c "from scripts.fetcher import GitHubFetcher; ..."
+gh workflow run galactic-summary.yml -f period=weekly -f custom_start=2026-02-16 -f custom_end=2026-02-22
 ```
 
 ## Output Files
-- `summaries/YYYY-MM-DD.md` - weekly summary markdown
-- `summaries/YYYY-MM-DD.json` - raw data cache
+- `summaries/weekly/YYYY-WXX.md` - weekly summary markdown
+- `news-post/YYYY-MM-DD-galactic-weekly/index.md` - Galaxy Hub news post
