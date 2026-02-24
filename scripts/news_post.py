@@ -79,7 +79,7 @@ def generate_frontmatter(week_num: int, year: int, end_date: str) -> dict:
         "title": f"Galactic Weekly: Week {week_num}, {year}",
         "date": end_date,
         "tease": "Weekly summary of activity across 150+ galaxyproject repositories",
-        "authors": "Galactic Bot",
+        "authors_structured": [{"name": "Galactic Bot"}],
         "tags": ["community", "development"],
         "subsites": ["all"],
     }
