@@ -83,6 +83,12 @@ jobs:
           WEEK_INFO=$(basename "$LATEST" .md)
           echo "week_info=$WEEK_INFO" >> $GITHUB_OUTPUT
 
+      - name: Sync fork with upstream
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          gh repo sync nekrut/galaxy-hub --source galaxyproject/galaxy-hub
+
       - name: Create PR via GitHub API
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
