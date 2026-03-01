@@ -104,6 +104,9 @@ jobs:
           FORK_DEFAULT=$(gh api "repos/${FORK}" --jq '.default_branch')
           BASE_SHA=$(gh api "repos/${FORK}/git/ref/heads/${FORK_DEFAULT}" --jq '.object.sha')
 
+          # Delete existing branch if it exists (e.g. from a previous run for the same week)
+          gh api "repos/${FORK}/git/refs/heads/${BRANCH_NAME}" -X DELETE 2>/dev/null || true
+
           # Create new branch on fork
           gh api "repos/${FORK}/git/refs" \
             -f ref="refs/heads/${BRANCH_NAME}" \
