@@ -12,6 +12,9 @@ Automated weekly summaries of GitHub activity across all 150+ repositories in th
 - Auto-creates Galaxy Hub news post branches
 - Email notifications when posts are ready for PR
 - Configurable rate limiting and retry logic
+- Early secret validation (fail fast before 150+ API calls)
+- Idempotent CI workflow with retry-safe PR creation
+- Duplicate summary detection (skips write if unchanged)
 - Structured logging with verbose mode
 
 ## Repository Structure
@@ -54,8 +57,9 @@ GitHub API interactions using both REST and GraphQL with retry logic.
 
 **Functions:**
 - `get_headers()` - Returns auth headers from `GITHUB_TOKEN`
+- `validate_github_token()` - Validates token with `/user` call before expensive fetches
 - `handle_rate_limit()` - Checks rate limit headers and waits if needed
-- `request_with_retry()` - HTTP requests with exponential backoff (1s, 2s, 4s)
+- `request_with_retry()` - HTTP requests with exponential backoff (1s, 2s, 4s); fails fast on 401
 - `fetch_org_repos()` - Lists all non-archived repos via GraphQL
 - `fetch_repo_issues()` - Gets issues created/closed in date range
 - `fetch_repo_prs()` - Gets PRs opened/merged in date range
@@ -103,7 +107,7 @@ Converts weekly summary to Galaxy Hub news post format.
 
 ```yaml
 organization: galaxyproject
-anthropic_model: claude-sonnet-4-20250514
+anthropic_model: claude-opus-4-6
 excluded_repos: []              # Repos to skip
 highlight_repos:                # Priority repos for summaries
   - galaxy
@@ -253,10 +257,10 @@ After successful run, an email is sent containing:
 
 ## Dependencies
 
-```
-requests>=2.31.0
-pyyaml>=6.0
-jinja2>=3.1.2
-anthropic==0.40.0
-pytest>=7.0.0
-```
+All dependencies are pinned in `requirements.txt` for reproducible CI builds. Key packages:
+
+- `anthropic==0.84.0` - Claude API SDK
+- `requests==2.32.5` - HTTP client
+- `pyyaml==6.0.3` - YAML parsing
+- `jinja2==3.1.6` - Template rendering
+- `pytest==9.0.2` - Testing

@@ -10,8 +10,8 @@ Galactic Weekly: automated weekly summaries of galaxyproject GitHub activity
 
 ```
 scripts/
-├── generate_summary.py  # main orchestrator
-├── fetcher.py           # GitHub API w/ retry + rate-limit handling
+├── generate_summary.py  # main orchestrator (validates secrets, skips duplicate output)
+├── fetcher.py           # GitHub API w/ retry + rate-limit + early token validation
 ├── aggregator.py        # metrics computation
 ├── summarizer.py        # AI summary generation (Claude)
 ├── renderer.py          # Jinja2 markdown rendering
@@ -26,8 +26,9 @@ Two jobs:
 
 ### Fork-Based PR Workflow
 - Uses nekrut/galaxy-hub fork (can't PR directly to upstream w/ fine-grained PAT)
-- Fork is auto-synced with upstream before each PR branch creation
+- Fork sync tolerates failures gracefully (warns instead of aborting)
 - GitHub API for branch/file creation (hub repo too large to clone)
+- File upload retries up to 3 times with backoff (handles transient GitHub API errors)
 - Branch naming: `news/galactic-weekly-w08`, `news/galactic-weekly-w09`, etc.
 - Email notification sent for manual PR creation on upstream
 
@@ -51,6 +52,9 @@ Two jobs:
 5. **Workflow push scope**: GitHub PATs need explicit `workflow` scope to modify `.github/workflows/` files
 6. **Markdown link escaping**: PR/issue titles with `[]` or backticks break `[text](url)` syntax; renderer.py has `md_escape` Jinja2 filter using HTML entities
 7. **Galaxy Hub frontmatter**: Uses `authors_structured` (list of `{name, github, orcid}` maps), NOT `authors` (string). Schema defined in `content/schema-news.yaml`
+8. **Fail fast on bad secrets**: `validate_github_token()` in fetcher.py calls `/user` before 150+ repo fetches; generate_summary.py checks `ANTHROPIC_API_KEY` at startup when AI is enabled
+9. **Pin all deps**: `requirements.txt` pins every transitive dependency for reproducible CI; `anthropic==0.84.0` is the current SDK version
+10. **Idempotent workflow**: Fork sync tolerates failures; file upload retries 3x; duplicate summary output is skipped
 
 ## Common Tasks
 

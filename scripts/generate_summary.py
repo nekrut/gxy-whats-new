@@ -3,13 +3,14 @@
 
 import argparse
 import logging
+import os
 import sys
 from datetime import date, timedelta
 from pathlib import Path
 
 import yaml
 
-from fetcher import fetch_org_repos, fetch_all_repos_activity
+from fetcher import fetch_org_repos, fetch_all_repos_activity, validate_github_token
 from aggregator import aggregate_metrics
 from renderer import render_markdown
 from summarizer import generate_repo_summaries, generate_overall_summary
@@ -168,6 +169,20 @@ def main():
         log.error(f"Config error: {e}")
         sys.exit(1)
 
+    # Validate secrets before expensive API calls
+    try:
+        validate_github_token()
+    except ValueError as e:
+        log.error(f"GitHub token error: {e}")
+        sys.exit(1)
+
+    if not args.no_ai:
+        api_key = os.environ.get("ANTHROPIC_API_KEY")
+        if not api_key:
+            log.error("ANTHROPIC_API_KEY environment variable is not set. "
+                      "Set it or use --no-ai to skip AI summaries.")
+            sys.exit(1)
+
     # Calculate date range
     start, end = get_date_range(args.period, config, args.start, args.end)
     log.info(f"Period: {args.period}")
@@ -230,8 +245,13 @@ def main():
     else:
         output_path = get_output_path(args.period, start, end, config)
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_text(markdown)
-        log.info(f"Output written to: {output_path}")
+
+        # Skip writing if output already exists with identical content
+        if output_path.exists() and output_path.read_text() == markdown:
+            log.info(f"Output unchanged, skipping write: {output_path}")
+        else:
+            output_path.write_text(markdown)
+            log.info(f"Output written to: {output_path}")
 
 
 if __name__ == "__main__":

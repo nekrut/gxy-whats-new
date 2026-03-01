@@ -22,12 +22,43 @@ DEFAULT_RATE_LIMIT_DELAY = 0.1
 def get_headers():
     token = os.environ.get("GITHUB_TOKEN")
     if not token:
-        raise ValueError("GITHUB_TOKEN environment variable required")
+        raise ValueError("GITHUB_TOKEN environment variable is not set. "
+                         "Set it via: export GITHUB_TOKEN=ghp_...")
     return {
         "Authorization": f"Bearer {token}",
         "Accept": "application/vnd.github+json",
         "X-GitHub-Api-Version": "2022-11-28",
     }
+
+
+def validate_github_token():
+    """Validate the GitHub token with a lightweight API call.
+
+    Raises ValueError on missing/invalid token so we fail fast
+    before making 150+ API calls.
+    """
+    headers = get_headers()
+    try:
+        resp = requests.get(f"{GITHUB_API}/user", headers=headers, timeout=10)
+    except requests.exceptions.RequestException as e:
+        raise ValueError(f"Cannot reach GitHub API: {e}") from e
+
+    if resp.status_code == 401:
+        raise ValueError(
+            "GITHUB_TOKEN is invalid or expired (HTTP 401). "
+            "Check that the token has not been revoked and has the required scopes."
+        )
+    if resp.status_code == 403:
+        raise ValueError(
+            "GITHUB_TOKEN lacks required permissions (HTTP 403). "
+            "Ensure the token has 'repo' scope for private repos or 'public_repo' for public."
+        )
+    if not resp.ok:
+        raise ValueError(
+            f"GitHub token validation failed: HTTP {resp.status_code} from {GITHUB_API}/user"
+        )
+    user = resp.json().get("login", "unknown")
+    log.info(f"GitHub token validated (user: {user})")
 
 
 def handle_rate_limit(response, max_retries=DEFAULT_MAX_RETRIES):
@@ -60,10 +91,20 @@ def request_with_retry(method, url, max_retries=DEFAULT_MAX_RETRIES, timeout=DEF
             if resp.status_code == 403 and handle_rate_limit(resp, max_retries):
                 continue
 
+            # Catch auth errors early with actionable messages
+            if resp.status_code == 401:
+                raise requests.exceptions.HTTPError(
+                    f"HTTP 401 Unauthorized from {url}. "
+                    "Check that GITHUB_TOKEN is valid and not expired.",
+                    response=resp,
+                )
+
             return resp
         except requests.exceptions.Timeout as e:
             last_error = e
             log.warning(f"Request timeout (attempt {attempt + 1}/{max_retries}): {url}")
+        except requests.exceptions.HTTPError:
+            raise  # Re-raise auth errors immediately, don't retry
         except requests.exceptions.RequestException as e:
             last_error = e
             log.warning(f"Request error (attempt {attempt + 1}/{max_retries}): {e}")
@@ -74,7 +115,7 @@ def request_with_retry(method, url, max_retries=DEFAULT_MAX_RETRIES, timeout=DEF
             log.debug(f"Retrying in {delay}s...")
             time.sleep(delay)
 
-    raise last_error or requests.exceptions.RequestException(f"Failed after {max_retries} retries")
+    raise last_error or requests.exceptions.RequestException(f"Failed after {max_retries} retries: {url}")
 
 
 def fetch_org_repos(org: str, config: dict = None) -> list[dict]:
@@ -118,11 +159,17 @@ def fetch_org_repos(org: str, config: dict = None) -> list[dict]:
             headers=headers,
             json={"query": query, "variables": variables},
         )
-        resp.raise_for_status()
+        try:
+            resp.raise_for_status()
+        except requests.exceptions.HTTPError as e:
+            raise requests.exceptions.HTTPError(
+                f"GitHub GraphQL API error (HTTP {resp.status_code}) "
+                f"while fetching repos for org '{org}': {e}"
+            ) from e
         data = resp.json()
 
         if "errors" in data:
-            raise Exception(f"GraphQL error: {data['errors']}")
+            raise Exception(f"GraphQL error fetching repos for '{org}': {data['errors']}")
 
         repo_data = data["data"]["organization"]["repositories"]
         for node in repo_data["nodes"]:

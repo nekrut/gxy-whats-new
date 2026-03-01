@@ -12,6 +12,7 @@ sys.path.insert(0, "scripts")
 from fetcher import (
     handle_rate_limit,
     request_with_retry,
+    validate_github_token,
     fetch_repo_issues,
     fetch_repo_prs,
     fetch_all_repos_activity,
@@ -44,6 +45,52 @@ class TestRateLimitHandling:
         resp = Mock()
         resp.headers = {}
         assert handle_rate_limit(resp) is False
+
+
+class TestValidateGithubToken:
+    """Test early token validation."""
+
+    @patch("fetcher.requests.get")
+    @patch.dict("os.environ", {"GITHUB_TOKEN": "ghp_test123"})
+    def test_valid_token(self, mock_get):
+        """Valid token should pass without error."""
+        mock_resp = Mock()
+        mock_resp.status_code = 200
+        mock_resp.ok = True
+        mock_resp.json.return_value = {"login": "testuser"}
+        mock_get.return_value = mock_resp
+
+        validate_github_token()  # Should not raise
+
+    @patch("fetcher.requests.get")
+    @patch.dict("os.environ", {"GITHUB_TOKEN": "ghp_invalid"})
+    def test_invalid_token_401(self, mock_get):
+        """Expired/invalid token should raise with helpful message."""
+        mock_resp = Mock()
+        mock_resp.status_code = 401
+        mock_resp.ok = False
+        mock_get.return_value = mock_resp
+
+        with pytest.raises(ValueError, match="invalid or expired"):
+            validate_github_token()
+
+    @patch("fetcher.requests.get")
+    @patch.dict("os.environ", {"GITHUB_TOKEN": "ghp_noscope"})
+    def test_forbidden_token_403(self, mock_get):
+        """Token without required scopes should raise."""
+        mock_resp = Mock()
+        mock_resp.status_code = 403
+        mock_resp.ok = False
+        mock_get.return_value = mock_resp
+
+        with pytest.raises(ValueError, match="lacks required permissions"):
+            validate_github_token()
+
+    @patch.dict("os.environ", {}, clear=True)
+    def test_missing_token(self):
+        """Missing GITHUB_TOKEN should raise."""
+        with pytest.raises(ValueError, match="not set"):
+            validate_github_token()
 
 
 class TestRequestWithRetry:
@@ -86,6 +133,19 @@ class TestRequestWithRetry:
             request_with_retry("get", "http://test.com", max_retries=3, timeout=10)
 
         assert mock_get.call_count == 3
+
+    @patch("fetcher.requests.get")
+    def test_401_raises_immediately(self, mock_get):
+        """401 should raise HTTPError immediately without retrying."""
+        mock_resp = Mock()
+        mock_resp.status_code = 401
+        mock_get.return_value = mock_resp
+
+        with pytest.raises(requests.exceptions.HTTPError, match="401 Unauthorized"):
+            request_with_retry("get", "http://test.com", max_retries=3, timeout=10)
+
+        # Should NOT retry on auth errors
+        assert mock_get.call_count == 1
 
 
 class TestFetchRepoIssues:
