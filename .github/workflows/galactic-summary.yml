@@ -1,180 +1,180 @@
-name: Galactic Summary Generator                                                                                                                                                                                             
-                                                                                                                                                                                                                               
-  on:                                                                                                                                                                                                                          
-    schedule:                                                                                                                                                                                                                  
-      - cron: '0 9 * * 0'  # Weekly: Sunday 9 AM UTC                                                                                                                                                                         
-    workflow_dispatch:
-      inputs:
-        period:
-          description: 'Summary period'
-          required: true
-          default: 'weekly'
-          type: choice
-          options:
-            - weekly
-            - monthly
-            - yearly
-        custom_start:
-          description: 'Custom start date (YYYY-MM-DD)'
-          required: false
-        custom_end:
-          description: 'Custom end date (YYYY-MM-DD)'
-          required: false
-  jobs:
-    generate-summary:
-      runs-on: ubuntu-latest
-      permissions:
-        contents: write
-      steps:
-        - uses: actions/checkout@v4
+name: Galactic Summary Generator
 
-        - uses: actions/setup-python@v5
-          with:
-            python-version: '3.11'
+on:
+  schedule:
+    - cron: '0 9 * * 0'  # Weekly: Sunday 9 AM UTC
+  workflow_dispatch:
+    inputs:
+      period:
+        description: 'Summary period'
+        required: true
+        default: 'weekly'
+        type: choice
+        options:
+          - weekly
+          - monthly
+          - yearly
+      custom_start:
+        description: 'Custom start date (YYYY-MM-DD)'
+        required: false
+      custom_end:
+        description: 'Custom end date (YYYY-MM-DD)'
+        required: false
 
-        - name: Install dependencies
-          run: pip install -r requirements.txt
+jobs:
+  generate-summary:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
 
-        - name: Generate summary
-          run: |
-            python scripts/generate_summary.py \
-              --period ${{ inputs.period || 'weekly' }} \
-              ${{ inputs.custom_start && format('--start {0}', inputs.custom_start) || '' }} \
-              ${{ inputs.custom_end && format('--end {0}', inputs.custom_end) || '' }}
-          env:
-            GITHUB_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
-            ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
-        - name: Commit and push
-          run: |
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add summaries/
-            git diff --staged --quiet || git commit -m "Add ${{ inputs.period || 'weekly' }} summary"
-            git pull --rebase origin main
-            git push
+      - name: Install dependencies
+        run: pip install -r requirements.txt
 
-    create-hub-pr:
-      needs: generate-summary
-      if: ${{ inputs.period == 'weekly' || github.event_name == 'schedule' }}
-      runs-on: ubuntu-latest
-      steps:
-        - uses: actions/checkout@v4
-          with:
-            fetch-depth: 0
+      - name: Generate summary
+        run: |
+          python scripts/generate_summary.py \
+            --period ${{ inputs.period || 'weekly' }} \
+            ${{ inputs.custom_start && format('--start {0}', inputs.custom_start) || '' }} \
+            ${{ inputs.custom_end && format('--end {0}', inputs.custom_end) || '' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 
-        - name: Pull latest changes
-          run: git pull origin main
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add summaries/
+          git diff --staged --quiet || git commit -m "Add ${{ inputs.period || 'weekly' }} summary"
+          git pull --rebase origin main
+          git push
 
-        - uses: actions/setup-python@v5
-          with:
-            python-version: '3.11'
+  create-hub-pr:
+    needs: generate-summary
+    if: ${{ inputs.period == 'weekly' || github.event_name == 'schedule' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-        - name: Install dependencies
-          run: pip install pyyaml
+      - name: Pull latest changes
+        run: git pull origin main
 
-        - name: Generate news post
-          id: news
-          run: |
-            python scripts/news_post.py
-            # Extract week info from latest summary filename
-            LATEST=$(ls -1 summaries/weekly/*.md | sort -r | head -1)
-            WEEK_INFO=$(basename "$LATEST" .md)
-            echo "week_info=$WEEK_INFO" >> $GITHUB_OUTPUT
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
-        - name: Sync fork with upstream
-          env:
-            GH_TOKEN: ${{ secrets.GH_PAT }}
-          run: |
-            # Sync fork; tolerate failure if already up to date or conflict
-            if ! gh repo sync nekrut/galaxy-hub --source galaxyproject/galaxy-hub 2>&1; then
-              echo "::warning::Fork sync failed — continuing with current fork state"
-            fi
+      - name: Install dependencies
+        run: pip install pyyaml
 
-        - name: Create PR via GitHub API
-          env:
-            GH_TOKEN: ${{ secrets.GH_PAT }}
-          run: |
-            set -euo pipefail
+      - name: Generate news post
+        id: news
+        run: |
+          python scripts/news_post.py
+          # Extract week info from latest summary filename
+          LATEST=$(ls -1 summaries/weekly/*.md | sort -r | head -1)
+          WEEK_INFO=$(basename "$LATEST" .md)
+          echo "week_info=$WEEK_INFO" >> $GITHUB_OUTPUT
 
-            FORK="nekrut/galaxy-hub"
-            UPSTREAM="galaxyproject/galaxy-hub"
-            WEEK_INFO="${{ steps.news.outputs.week_info }}"
-            # e.g. 2026-W08 -> w08
-            SHORT_WEEK=$(echo "$WEEK_INFO" | sed 's/.*-W/w/' | tr '[:upper:]' '[:lower:]')
-            BRANCH_NAME="news/galactic-weekly-${SHORT_WEEK}"
+      - name: Sync fork with upstream
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          gh repo sync nekrut/galaxy-hub --source galaxyproject/galaxy-hub || \
+            echo "::warning::Fork sync failed -- continuing with current fork state"
 
-            # Get fork's default branch SHA to create new branch from
-            FORK_DEFAULT=$(gh api "repos/${FORK}" --jq '.default_branch')
-            BASE_SHA=$(gh api "repos/${FORK}/git/ref/heads/${FORK_DEFAULT}" --jq '.object.sha')
+      - name: Create PR via GitHub API
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          set -euo pipefail
 
-            # Delete existing branch if it exists (e.g. from a previous run for the same week)
-            gh api "repos/${FORK}/git/refs/heads/${BRANCH_NAME}" -X DELETE 2>/dev/null || true
+          FORK="nekrut/galaxy-hub"
+          UPSTREAM="galaxyproject/galaxy-hub"
+          WEEK_INFO="${{ steps.news.outputs.week_info }}"
+          # e.g. 2026-W08 -> w08
+          SHORT_WEEK=$(echo "$WEEK_INFO" | sed 's/.*-W/w/' | tr '[:upper:]' '[:lower:]')
+          BRANCH_NAME="news/galactic-weekly-${SHORT_WEEK}"
 
-            # Create new branch on fork
-            gh api "repos/${FORK}/git/refs" \
-              -f ref="refs/heads/${BRANCH_NAME}" \
-              -f sha="${BASE_SHA}"
+          # Get fork's default branch SHA to create new branch from
+          FORK_DEFAULT=$(gh api "repos/${FORK}" --jq '.default_branch')
+          BASE_SHA=$(gh api "repos/${FORK}/git/ref/heads/${FORK_DEFAULT}" --jq '.object.sha')
 
-            # Find the news post file
-            NEWS_DIR=$(ls -d news-post/*-galactic-weekly)
-            NEWS_FILE="${NEWS_DIR}/index.md"
-            DIR_NAME=$(basename "$NEWS_DIR")
+          # Delete existing branch if it exists (e.g. from a previous run for the same week)
+          gh api "repos/${FORK}/git/refs/heads/${BRANCH_NAME}" -X DELETE 2>/dev/null || true
 
-            # Upload file content to fork
-            CONTENT=$(base64 -i "$NEWS_FILE")
-            FILE_PATH="content/news/${DIR_NAME}/index.md"
+          # Create new branch on fork
+          gh api "repos/${FORK}/git/refs" \
+            -f ref="refs/heads/${BRANCH_NAME}" \
+            -f sha="${BASE_SHA}"
 
-            # Check if file exists and get its SHA (needed for updates)
-            EXISTING_SHA=$(gh api "repos/${FORK}/contents/${FILE_PATH}?ref=${BRANCH_NAME}" --jq '.sha' 2>/dev/null || echo "")
+          # Find the news post file
+          NEWS_DIR=$(ls -d news-post/*-galactic-weekly)
+          NEWS_FILE="${NEWS_DIR}/index.md"
+          DIR_NAME=$(basename "$NEWS_DIR")
 
-            # Retry upload up to 3 times (handles transient GitHub API errors)
-            for attempt in 1 2 3; do
-              if [ -n "$EXISTING_SHA" ]; then
-                if gh api "repos/${FORK}/contents/${FILE_PATH}" \
-                  -X PUT \
-                  -f message="Update Galactic Weekly for ${WEEK_INFO}" \
-                  -f content="${CONTENT}" \
-                  -f branch="${BRANCH_NAME}" \
-                  -f sha="${EXISTING_SHA}" 2>&1; then
-                  break
-                fi
-              else
-                if gh api "repos/${FORK}/contents/${FILE_PATH}" \
-                  -X PUT \
-                  -f message="Add Galactic Weekly for ${WEEK_INFO}" \
-                  -f content="${CONTENT}" \
-                  -f branch="${BRANCH_NAME}" 2>&1; then
-                  break
-                fi
+          # Upload file content to fork
+          CONTENT=$(base64 -i "$NEWS_FILE")
+          FILE_PATH="content/news/${DIR_NAME}/index.md"
+
+          # Check if file exists and get its SHA (needed for updates)
+          EXISTING_SHA=$(gh api "repos/${FORK}/contents/${FILE_PATH}?ref=${BRANCH_NAME}" --jq '.sha' 2>/dev/null || echo "")
+
+          # Retry upload up to 3 times (handles transient GitHub API errors)
+          for attempt in 1 2 3; do
+            if [ -n "$EXISTING_SHA" ]; then
+              if gh api "repos/${FORK}/contents/${FILE_PATH}" \
+                -X PUT \
+                -f message="Update Galactic Weekly for ${WEEK_INFO}" \
+                -f content="${CONTENT}" \
+                -f branch="${BRANCH_NAME}" \
+                -f sha="${EXISTING_SHA}" 2>&1; then
+                break
               fi
-              echo "::warning::File upload attempt ${attempt} failed, retrying..."
-              sleep $((attempt * 2))
-              # Re-fetch SHA in case a previous partial upload created the file
-              EXISTING_SHA=$(gh api "repos/${FORK}/contents/${FILE_PATH}?ref=${BRANCH_NAME}" --jq '.sha' 2>/dev/null || echo "")
-            done
+            else
+              if gh api "repos/${FORK}/contents/${FILE_PATH}" \
+                -X PUT \
+                -f message="Add Galactic Weekly for ${WEEK_INFO}" \
+                -f content="${CONTENT}" \
+                -f branch="${BRANCH_NAME}" 2>&1; then
+                break
+              fi
+            fi
+            echo "::warning::File upload attempt ${attempt} failed, retrying..."
+            sleep $((attempt * 2))
+            # Re-fetch SHA in case a previous partial upload created the file
+            EXISTING_SHA=$(gh api "repos/${FORK}/contents/${FILE_PATH}?ref=${BRANCH_NAME}" --jq '.sha' 2>/dev/null || echo "")
+          done
 
-            # Output branch URL for manual PR creation
-            echo "Branch ready: https://github.com/${FORK}/tree/${BRANCH_NAME}"
-            echo "Create PR: https://github.com/galaxyproject/galaxy-hub/compare/main...nekrut:galaxy-hub:${BRANCH_NAME}"
+          # Output branch URL for manual PR creation
+          echo "Branch ready: https://github.com/${FORK}/tree/${BRANCH_NAME}"
+          echo "Create PR: https://github.com/galaxyproject/galaxy-hub/compare/main...nekrut:galaxy-hub:${BRANCH_NAME}"
 
-            # Save for email step
-            echo "BRANCH_URL=https://github.com/${FORK}/tree/${BRANCH_NAME}" >> $GITHUB_ENV
-            echo "PR_URL=https://github.com/galaxyproject/galaxy-hub/compare/main...nekrut:galaxy-hub:${BRANCH_NAME}" >> $GITHUB_ENV
-            echo "WEEK_INFO=${WEEK_INFO}" >> $GITHUB_ENV
+          # Save for email step
+          echo "BRANCH_URL=https://github.com/${FORK}/tree/${BRANCH_NAME}" >> $GITHUB_ENV
+          echo "PR_URL=https://github.com/galaxyproject/galaxy-hub/compare/main...nekrut:galaxy-hub:${BRANCH_NAME}" >> $GITHUB_ENV
+          echo "WEEK_INFO=${WEEK_INFO}" >> $GITHUB_ENV
 
-        - name: Send email notification
-          uses: dawidd6/action-send-mail@v3
-          with:
-            server_address: smtp.gmail.com
-            server_port: 465
-            username: ${{ secrets.SMTP_USERNAME }}
-            password: ${{ secrets.SMTP_PASSWORD }}
-            subject: "Galactic Weekly ${{ env.WEEK_INFO }} ready for PR"
-            to: anton@nekrut.org
-            from: Galactic Bot <${{ secrets.SMTP_USERNAME }}>
-            body: |
-              Weekly summary is ready for Galaxy Hub.
+      - name: Send email notification
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          subject: "Galactic Weekly ${{ env.WEEK_INFO }} ready for PR"
+          to: anton@nekrut.org
+          from: Galactic Bot <${{ secrets.SMTP_USERNAME }}>
+          body: |
+            Weekly summary is ready for Galaxy Hub.
 
-              Branch: ${{ env.BRANCH_URL }}
-              Create PR: ${{ env.PR_URL }}
+            Branch: ${{ env.BRANCH_URL }}
+            Create PR: ${{ env.PR_URL }}
