@@ -40,8 +40,8 @@ Two jobs:
 
 ## Git Push
 
-- Always use HTTPS for pushing (remote is set to `https://github.com/nekrut/gxy-whats-new.git`)
-- **Workflow files**: Pushing changes to `.github/workflows/` requires a PAT with `workflow` scope. If the push is rejected, the user must push from their local machine.
+- Remote is HTTPS (`https://github.com/nekrut/gxy-whats-new.git`) but SSH also works (`git@github.com:nekrut/gxy-whats-new.git`)
+- **Workflow files**: HTTPS push of `.github/workflows/` changes requires `workflow` scope on PAT. Use SSH push (`git push git@github.com:nekrut/gxy-whats-new.git main`) as workaround.
 
 ## Key Learnings
 
@@ -55,6 +55,7 @@ Two jobs:
 8. **Fail fast on bad secrets**: `validate_github_token()` in fetcher.py calls `/user` before 150+ repo fetches; generate_summary.py checks `ANTHROPIC_API_KEY` at startup when AI is enabled
 9. **Pin all deps**: `requirements.txt` pins every transitive dependency for reproducible CI; `anthropic==0.84.0` is the current SDK version
 10. **Idempotent workflow**: Fork sync tolerates failures; file upload retries 3x; duplicate summary output is skipped
+11. **YAML indentation matters**: Workflow YAML top-level keys (`name`, `on`, `jobs`) must be at column 0. Indenting them breaks parsing and silently disables scheduled runs.
 
 ## Common Tasks
 
